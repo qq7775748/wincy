@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<title>Wincy 设置</title>
+<script src="theme.js"></script>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="app settings">
+    <div class="titlebar" data-tauri-drag-region>
+      <div class="title" data-tauri-drag-region>设置 <span class="ver">0.2.5</span></div>
+      <button class="close" id="close" title="关闭">✕</button>
+    </div>
+
+    <div class="content">
+      <div class="group">
+        <h3>通用</h3>
+        <div class="card">
+          <div class="field">
+            <div class="grow">
+              <div class="label">唤出快捷键</div>
+              <div class="desc">点击后按下新的组合键</div>
+            </div>
+            <button class="hotkey" id="hk">Alt+V</button>
+          </div>
+          <div class="field">
+            <div class="grow">
+              <div class="label">历史条数上限</div>
+              <div class="desc">固定项不计入 · 填 0 表示不限制</div>
+            </div>
+            <input class="num" id="size" type="number" min="0" step="1" inputmode="numeric" />
+          </div>
+          <div class="field">
+            <div class="grow">
+              <div class="label">唤出位置</div>
+              <div class="desc">拖动弹窗顶部即可让它记住新位置</div>
+            </div>
+            <select class="pick" id="pos">
+              <option value="cursor">跟随鼠标</option>
+              <option value="bottom_right">右下角</option>
+              <option value="top_right">右上角</option>
+              <option value="center">屏幕居中</option>
+              <option value="custom">上次拖动位置</option>
+            </select>
+          </div>
+          <div class="field">
+            <div class="grow">
+              <div class="label">自动粘贴</div>
+              <div class="desc">选中后直接粘贴到上一个窗口</div>
+            </div>
+            <button class="switch" id="paste"></button>
+          </div>
+          <div class="field">
+            <div class="grow">
+              <div class="label">复制后保持显示</div>
+              <div class="desc">常驻桌面：复制后不消失、失去焦点也不消失 · <kbd>Esc</kbd> 或热键关闭</div>
+            </div>
+            <button class="switch" id="keep"></button>
+          </div>
+        </div>
+        <div class="status" id="status1"></div>
+      </div>
+
+      <div class="group">
+        <h3>外观</h3>
+        <div class="card">
+          <div class="field">
+            <div class="grow">
+              <div class="label">明暗</div>
+              <div class="desc">跟随系统会自动响应 Windows 深浅色切换</div>
+            </div>
+            <select class="pick" id="theme">
+              <option value="system">跟随系统</option>
+              <option value="light">浅色</option>
+              <option value="dark">深色</option>
+            </select>
+          </div>
+          <div class="field">
+            <div class="grow">
+              <div class="label">主题色</div>
+              <div class="desc">选中项与图钉使用这个颜色</div>
+            </div>
+            <div class="swatches" id="accent"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="group">
+        <h3>启动</h3>
+        <div class="card">
+          <div class="field">
+            <div class="grow">
+              <div class="label">开机自动运行</div>
+              <div class="desc">登录 Windows 后在托盘静默启动</div>
+            </div>
+            <button class="switch" id="boot"></button>
+          </div>
+        </div>
+      </div>
+
+      <div class="group">
+        <h3>数据</h3>
+        <div class="card">
+          <div class="field">
+            <div class="grow">
+              <div class="label">清空历史</div>
+              <div class="desc">保留已固定的条目</div>
+            </div>
+            <button class="btn danger" id="clear">清空</button>
+          </div>
+          <div class="field">
+            <div class="grow">
+              <div class="label">清空全部</div>
+              <div class="desc">包括固定项，不可恢复</div>
+            </div>
+            <button class="btn danger" id="clearAll">全部清空</button>
+          </div>
+          <div class="field">
+            <div class="grow">
+              <div class="label">数据目录</div>
+              <div class="desc">history.json 与图片缓存</div>
+            </div>
+            <button class="btn" id="openDir">打开</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="group">
+        <h3>关于</h3>
+        <div class="card">
+          <div class="field">
+            <div class="grow">
+              <div class="label">Wincy <span style="color:var(--text-faint)">0.2.5</span></div>
+              <div class="desc">仿 Maccy 的 Windows 剪贴板管理器 · 数据全部保存在本机</div>
+            </div>
+            <button class="btn" id="quit">退出</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="about">
+        <b>快捷键</b>：<kbd>↵</kbd> 复制 · <kbd>Alt</kbd><kbd>↵</kbd> 粘贴 · <kbd>Alt</kbd><kbd>Shift</kbd><kbd>↵</kbd> 纯文本粘贴
+        <br /><kbd>Ctrl</kbd><kbd>P</kbd> 固定 · <kbd>Del</kbd> 删除 · <kbd>Tab</kbd> 切换筛选 · <kbd>Esc</kbd> 关闭
+        <br />拖动窗口边缘可以调整大小，尺寸会被记住
+      </div>
+    </div>
+  </div>
+  <script src="resize.js"></script>
+  <script src="settings.js"></script>
+</body>
+</html>

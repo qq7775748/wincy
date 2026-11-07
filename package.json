@@ -1,0 +1,13 @@
+{
+  "name": "wincy",
+  "private": true,
+  "version": "0.2.5",
+  "description": "A lightweight, keyboard-first clipboard manager for Windows (Maccy for Windows)",
+  "scripts": {
+    "dev": "tauri dev",
+    "build": "tauri build --no-bundle"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2"
+  }
+}

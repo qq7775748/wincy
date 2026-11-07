@@ -1,0 +1,22 @@
+# Rust / Tauri build output
+src-tauri/target/
+src-tauri/gen/
+
+# Front-end deps
+node_modules/
+dist/
+
+# Locally built installers and binaries (published through GitHub Releases)
+release/
+*.exe
+*.msi
+
+# Logs
+*.log
+
+# OS / editor noise
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp

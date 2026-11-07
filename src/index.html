@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Wincy</title>
+<script src="theme.js"></script>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body class="popup">
+  <div class="app">
+    <div class="dragbar" data-tauri-drag-region></div>
+
+    <div class="search">
+      <svg class="i-search" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+        <circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.6-3.6"></path>
+      </svg>
+      <input id="q" type="text" placeholder="搜索剪贴板历史" autocomplete="off" spellcheck="false" />
+      <select id="scope" class="scope" title="筛选范围（Tab 切换）" tabindex="-1">
+        <option value="all">全部</option>
+        <option value="text">文本</option>
+        <option value="image">图片</option>
+        <option value="files">文件</option>
+      </select>
+    </div>
+
+    <div class="list" id="list" tabindex="-1"></div>
+
+    <div class="empty" id="empty">
+      <div class="empty-ico">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <rect x="5" y="4" width="14" height="17" rx="2.5"></rect>
+          <path d="M9 3h6v3H9z" fill="currentColor" stroke="none"></path>
+          <path d="M9 11h6M9 15h4" stroke-linecap="round"></path>
+        </svg>
+      </div>
+      <div class="empty-title">还没有历史</div>
+      <div class="empty-sub">复制任何文本、图片或文件，它们会出现在这里</div>
+    </div>
+
+    <div class="footer">
+      <div class="hints">
+        <span><kbd>↵</kbd>复制</span>
+        <span><kbd>Alt</kbd><kbd>↵</kbd>粘贴</span>
+        <span><kbd>Ctrl</kbd><kbd>P</kbd>固定</span>
+        <span><kbd>Del</kbd>删除</span>
+      </div>
+      <div class="count" id="count"></div>
+    </div>
+  </div>
+  <script src="resize.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
