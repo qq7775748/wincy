@@ -1,5 +1,6 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod autostart;
 mod clipboard;
 mod store;
 
@@ -40,6 +41,7 @@ struct AppState {
     /// Throttles the history.json write that follows a resize drag.
     size_save: Mutex<Instant>,
     pause_item: Mutex<Option<CheckMenuItem<tauri::Wry>>>,
+    boot_item: Mutex<Option<CheckMenuItem<tauri::Wry>>>,
     /// HWND of the popup, cached so the watcher threads can query/act without
     /// touching Tauri window objects from a background thread.
     main_hwnd: AtomicIsize,
@@ -82,6 +84,7 @@ impl AppState {
             size_dirty: AtomicBool::new(false),
             size_save: Mutex::new(Instant::now() - Duration::from_secs(5)),
             pause_item: Mutex::new(None),
+            boot_item: Mutex::new(None),
             main_hwnd: AtomicIsize::new(0),
             mouse_down: AtomicBool::new(false),
         }
@@ -923,23 +926,38 @@ fn quit_app(app: AppHandle) {
     app.exit(0);
 }
 
-#[tauri::command]
-fn set_autostart(app: AppHandle, enabled: bool) -> Result<bool, String> {
-    use tauri_plugin_autostart::ManagerExt;
-    let manager = app.autolaunch();
-    let res = if enabled {
-        manager.enable()
+/// Writes the per-user Run entry and keeps `settings.launch_at_login` in step
+/// so the tray checkbox, the settings switch and the registry never disagree.
+fn apply_autostart(app: &AppHandle, enabled: bool) -> Result<bool, String> {
+    if enabled {
+        autostart::enable()?;
     } else {
-        manager.disable()
-    };
-    res.map_err(|e| e.to_string())?;
-    Ok(manager.is_enabled().unwrap_or(enabled))
+        autostart::disable()?;
+    }
+    let on = autostart::is_enabled();
+    log(&format!("autostart -> {} ({})", on, if enabled { "enable" } else { "disable" }));
+
+    {
+        let state = app.state::<AppState>();
+        let mut s = state.store.lock().unwrap();
+        s.settings.launch_at_login = on;
+        s.save();
+    }
+    if let Some(item) = app.state::<AppState>().boot_item.lock().unwrap().as_ref() {
+        let _ = item.set_checked(on);
+    }
+    let _ = app.emit("settings-changed", ());
+    Ok(on)
 }
 
 #[tauri::command]
-fn get_autostart(app: AppHandle) -> bool {
-    use tauri_plugin_autostart::ManagerExt;
-    app.autolaunch().is_enabled().unwrap_or(false)
+fn set_autostart(app: AppHandle, enabled: bool) -> Result<bool, String> {
+    apply_autostart(&app, enabled)
+}
+
+#[tauri::command]
+fn get_autostart(_app: AppHandle) -> bool {
+    autostart::is_enabled()
 }
 
 #[tauri::command]
@@ -966,10 +984,6 @@ fn main() {
             log("second instance -> show popup");
             show_popup(app);
         }))
-        .plugin(tauri_plugin_autostart::init(
-            tauri_plugin_autostart::MacosLauncher::LaunchAgent,
-            None,
-        ))
         .plugin(
             tauri_plugin_global_shortcut::Builder::new()
                 .with_handler(|app, _shortcut, event| {
@@ -1019,6 +1033,15 @@ fn main() {
                 let _ = app.global_shortcut().register(sc);
             }
 
+            // autostart bookkeeping: a moved/reinstalled exe leaves a Run entry
+            // pointing at the old path; heal() rewrites it in place.
+            if autostart::heal() {
+                log("autostart entry re-pointed at the current exe");
+            }
+            if autostart::launched_by_autostart() {
+                log("started by the Run key (logon)");
+            }
+
             // Both windows are resizable; reopen at the size the user left.
             for (label, w, h) in [
                 ("main", settings.popup_w, settings.popup_h),
@@ -1036,6 +1059,14 @@ fn main() {
             let settings_i = MenuItem::with_id(app, "settings", "设置…", true, None::<&str>)?;
             let pause_i =
                 CheckMenuItem::with_id(app, "pause", "暂停记录", true, !settings.monitoring, None::<&str>)?;
+            let boot_i = CheckMenuItem::with_id(
+                app,
+                "boot",
+                "开机自动启动",
+                true,
+                autostart::is_enabled(),
+                None::<&str>,
+            )?;
             let clear_i = MenuItem::with_id(app, "clear", "清空历史（保留固定项）", true, None::<&str>)?;
             let clear_all_i =
                 MenuItem::with_id(app, "clear_all", "清空全部历史", true, None::<&str>)?;
@@ -1047,6 +1078,7 @@ fn main() {
                     &settings_i,
                     &PredefinedMenuItem::separator(app)?,
                     &pause_i,
+                    &boot_i,
                     &clear_i,
                     &clear_all_i,
                     &PredefinedMenuItem::separator(app)?,
@@ -1057,6 +1089,7 @@ fn main() {
             {
                 let state = app.state::<AppState>();
                 *state.pause_item.lock().unwrap() = Some(pause_i.clone());
+                *state.boot_item.lock().unwrap() = Some(boot_i.clone());
             }
 
             let icon = app
@@ -1098,6 +1131,12 @@ fn main() {
                             let _ = item.set_checked(!next);
                         }
                         let _ = app.emit("history-changed", ());
+                    }
+                    "boot" => {
+                        let on = autostart::is_enabled();
+                        if let Err(e) = apply_autostart(app, !on) {
+                            log(&format!("autostart toggle failed: {e}"));
+                        }
                     }
                     "clear" => {
                         app.state::<AppState>().store.lock().unwrap().clear(false);

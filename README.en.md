@@ -54,7 +54,7 @@ Tauri 2 + native Win32. 1.3 MB installer, ~20 MB resident memory.
 
 Grab `Teecy_x.y.z_x64-setup.exe` from [Releases](../../releases) and run it. Windows 10 / 11 x64, with the built-in WebView2 runtime (preinstalled on Windows 11).
 
-It installs per-user, no admin rights needed. The tray menu offers open / settings / pause monitoring / clear history / quit.
+It installs per-user, no admin rights needed. The tray menu offers open / settings / pause monitoring / launch at login / clear history / quit.
 
 ## Build from source
 
@@ -77,7 +77,8 @@ The installer lands in `src-tauri/target/release/bundle/nsis/`.
 
 - Everything stays on your machine in `%APPDATA%\app.teecy.clipboard\`: `history.json` for text, `images/` for pictures.
 - No network access, no telemetry, no accounts. Nothing outside WebView2 is required at runtime.
-- Pause monitoring or wipe the history from the tray menu. A history limit of 0 means unlimited.
+- Pause monitoring, toggle launch-at-login or wipe the history from the tray menu. A history limit of 0 means unlimited.
+- Launch-at-login writes a quoted command line to the per-user Run key, so install paths with spaces keep working; the entry is re-pointed automatically after moving the app.
 
 ## Project layout
 

@@ -13,7 +13,6 @@
     "core:window:allow-start-resize-dragging",
     "core:window:allow-center",
     "core:event:default",
-    "global-shortcut:default",
-    "autostart:default"
+    "global-shortcut:default"
   ]
 }
