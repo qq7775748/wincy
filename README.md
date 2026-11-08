@@ -27,6 +27,7 @@ Tauri 2 + 原生 Win32，安装包 1.3 MB，常驻内存约 20 MB。
 | | |
 |---|---|
 | **快捷键唤出** | 默认 <kbd>Alt</kbd>+<kbd>V</kbd>，可在设置里录制任意组合键；在光标附近弹出（可改为右下角 / 右上角 / 居中 / 记住的位置） |
+| **拼音搜索** | 直接输入全拼、首字母或混排（`yinhang` / `yh` / `wx`），多音字自动覆盖（银行 yinhang、音乐 yinyue）；中英数字混合条目同样可搜 |
 | **键盘优先** | 输入即过滤，<kbd>↑</kbd><kbd>↓</kbd> 选择，<kbd>Enter</kbd> 复制，<kbd>Alt</kbd>+<kbd>Enter</kbd> 直接粘贴到上一个窗口 |
 | **多格式** | 纯文本、富文本（保留 HTML 格式）、图片、文件列表；粘贴时按原格式写回剪贴板 |
 | **隐私过滤** | 识别 `ExcludeClipboardContentFromMonitorProcessing`、`CanIncludeInClipboardHistory` 等标记，密码管理器标记为机密的条目不会被记录 |

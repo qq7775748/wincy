@@ -27,6 +27,7 @@ Tauri 2 + native Win32. 1.3 MB installer, ~20 MB resident memory.
 | | |
 |---|---|
 | **Hotkey popup** | <kbd>Alt</kbd>+<kbd>V</kbd> by default, any combo can be recorded. Appears at the cursor, or bottom-right / top-right / center / last dragged position |
+| **Pinyin search** | Type full pinyin, initials or a mix (`yinhang` / `yh` / `wx`); heteronyms covered automatically (bank `yinhang`, music `yinyue`); mixed CJK/latin/number entries work too |
 | **Keyboard first** | Type to filter, <kbd>↑</kbd><kbd>↓</kbd> to select, <kbd>Enter</kbd> to copy, <kbd>Alt</kbd>+<kbd>Enter</kbd> to paste straight into the previous window |
 | **All the formats** | Plain text, rich text (HTML preserved), images, file lists — written back in their original format |
 | **Privacy aware** | Honors `ExcludeClipboardContentFromMonitorProcessing` and `CanIncludeInClipboardHistory`, so items password managers mark as concealed are never recorded |

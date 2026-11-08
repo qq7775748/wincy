@@ -58,15 +58,102 @@ function humanSize(n) {
   return `${(n / 1024 / 1024).toFixed(1)} MB`;
 }
 
+const PY_BUCKETS = window.TEECY_PY || {};
+const PY_ALT = window.TEECY_PY_ALT || {};
+const CH2PY = Object.create(null);
+for (const py in PY_BUCKETS) {
+  for (const ch of PY_BUCKETS[py]) CH2PY[ch] = py;
+}
+// Only index the head of an entry: clipboard items can be kilobytes of text and
+// nobody searches for a phrase buried 2000 characters in.
+const PY_LIMIT = 400;
+const PY_Q = /^[a-z0-9]+$/;
+const pyCache = new WeakMap();
+
+function pinyinIndexOf(text) {
+  let full = '';
+  let ini = '';
+  // Alternate full-pinyin streams. Each heteronym may fork a new stream (bank
+  // for 行, music for 乐...), capped so a heteronym-heavy text can't explode
+  // combinatorially. Streams that already forked keep primary readings after
+  // their swap point, so a single swap is always represented exactly.
+  let alts = null;
+  let n = 0;
+  const push = (s) => {
+    if (alts) for (let i = 0; i < alts.length; i++) alts[i] += s;
+  };
+  for (const ch of text) {
+    if (++n > PY_LIMIT) break;
+    const py = CH2PY[ch];
+    if (py) {
+      const others = PY_ALT[ch];
+      if (others && others.length) {
+        if (!alts) alts = [];
+        const base = full; // content before this character
+        for (const o of others) {
+          if (alts.length >= 8) break;
+          alts.push(base + o);
+        }
+      }
+      full += py;
+      ini += py[0];
+      push(py);
+      continue;
+    }
+    // ASCII runs are kept verbatim so mixed entries ("微信 wx") still match.
+    const c = ch.toLowerCase();
+    if (c >= 'a' && c <= 'z') {
+      full += c;
+      ini += c;
+      push(c);
+    } else if (c >= '0' && c <= '9') {
+      full += c;
+      push(c);
+    }
+  }
+  return { full, ini, alts };
+}
+
+function pinyinOf(item) {
+  let p = pyCache.get(item);
+  if (!p) {
+    p = pinyinIndexOf(item.text || '');
+    pyCache.set(item, p);
+  }
+  return p;
+}
+
+function isSubsequence(stream, q) {
+  let i = 0;
+  for (const ch of stream) {
+    if (ch === q[i]) i++;
+    if (i === q.length) return true;
+  }
+  return false;
+}
+
 function score(item, q) {
   if (!q) return 1;
   const hay = (item.text || '').toLowerCase();
   if (hay.includes(q)) return 100;
+
+  // A single latin letter would hit almost every entry through initials, which
+  // buries the real matches — only reach for pinyin from two characters up.
+  const usePy = q.length > 1 && PY_Q.test(q);
+  if (usePy) {
+    const p = pinyinOf(item);
+    if (p.full.includes(q)) return 90;
+    if (p.alts && p.alts.some((a) => a.includes(q))) return 88;
+    if (p.ini.includes(q)) return 80;
+  }
+
   let i = 0;
   for (const ch of hay) {
     if (ch === q[i]) i++;
     if (i === q.length) return 50;
   }
+  // Last resort: letters scattered through the pinyin stream ("wixn" -> 微信).
+  if (usePy && isSubsequence(pinyinOf(item).full, q)) return 40;
   return 0;
 }
 

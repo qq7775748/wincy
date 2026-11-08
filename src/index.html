@@ -15,7 +15,7 @@
       <svg class="i-search" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
         <circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.6-3.6"></path>
       </svg>
-      <input id="q" type="text" placeholder="搜索剪贴板历史" autocomplete="off" spellcheck="false" />
+      <input id="q" type="text" placeholder="搜索剪贴板历史（支持拼音）" autocomplete="off" spellcheck="false" />
       <select id="scope" class="scope" title="筛选范围（Tab 切换）" tabindex="-1">
         <option value="all">全部</option>
         <option value="text">文本</option>
@@ -49,6 +49,7 @@
     </div>
   </div>
   <script src="resize.js"></script>
+  <script src="pinyin-data.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
