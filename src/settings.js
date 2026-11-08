@@ -136,7 +136,7 @@ const ACCENT_LABEL = {
 
 function paintAccents(active) {
   accentEl.textContent = '';
-  (window.__wincyTheme.ACCENTS || []).forEach((a) => {
+  (window.__teecyTheme.ACCENTS || []).forEach((a) => {
     const b = document.createElement('button');
     b.type = 'button';
     b.className = 'sw' + (a === active ? ' on' : '');
@@ -145,7 +145,7 @@ function paintAccents(active) {
     b.addEventListener('click', async () => {
       // Local first so the swatch ring and the whole window recolour instantly,
       // then persist — the popup follows through the shared localStorage.
-      window.__wincyTheme.setAccent(a);
+      window.__teecyTheme.setAccent(a);
       paintAccents(a);
       settings.accent = a;
       await persist();
@@ -157,7 +157,7 @@ function paintAccents(active) {
 themeEl.addEventListener('change', async () => {
   const v = themeEl.value === 'dark' || themeEl.value === 'light' ? themeEl.value : 'system';
   settings.theme = v;
-  window.__wincyTheme.set(v);
+  window.__teecyTheme.set(v);
   await persist();
 });
 
@@ -225,8 +225,8 @@ async function load() {
   themeEl.value = t;
   // The backend is the source of truth; mirror it so the popup can pick the
   // right palette without waiting for IPC on every hotkey press.
-  window.__wincyTheme.applyAll(t, settings.accent);
-  paintAccents(window.__wincyTheme.accent());
+  window.__teecyTheme.applyAll(t, settings.accent);
+  paintAccents(window.__teecyTheme.accent());
   paintToggles();
   const auto = await invoke('get_autostart');
   bootEl.classList.toggle('on', auto);

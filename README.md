@@ -1,8 +1,8 @@
 <div align="center">
 
-<img src="docs/logo.png" width="104" alt="Wincy" />
+<img src="docs/logo.png" width="104" alt="Teecy" />
 
-# Wincy
+# Teecy
 
 **Windows 上的 Maccy** —— 轻量、键盘优先、纯本地的剪贴板历史管理器。
 
@@ -52,7 +52,7 @@ Tauri 2 + 原生 Win32，安装包 1.3 MB，常驻内存约 20 MB。
 
 ## 安装
 
-从 [Releases](../../releases) 下载 `Wincy_x.y.z_x64-setup.exe`，双击安装。仅支持 Windows 10 / 11（x64），需要系统自带的 WebView2 运行时（Win11 默认包含）。
+从 [Releases](../../releases) 下载 `Teecy_x.y.z_x64-setup.exe`，双击安装。仅支持 Windows 10 / 11（x64），需要系统自带的 WebView2 运行时（Win11 默认包含）。
 
 安装到当前用户目录，不需要管理员权限。首次启动后在托盘右键可「打开 / 设置 / 暂停记录 / 清空历史 / 退出」。
 
@@ -75,7 +75,7 @@ npx tauri build    # 生成 NSIS 安装包
 
 ## 数据与隐私
 
-- 全部数据保存在本机 `%APPDATA%\app.wincy.clipboard\`：`history.json` 存文本，`images/` 存图片。
+- 全部数据保存在本机 `%APPDATA%\app.teecy.clipboard\`：`history.json` 存文本，`images/` 存图片。
 - 不联网、不上传、无统计。除 Windows 自带的 WebView2 外没有任何运行时依赖。
 - 托盘菜单可暂停记录或清空历史；「历史条数上限」填 0 表示不限制。
 

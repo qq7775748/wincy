@@ -1,7 +1,7 @@
 {
-  "name": "wincy",
+  "name": "teecy",
   "private": true,
-  "version": "0.2.5",
+  "version": "0.3.0",
   "description": "A lightweight, keyboard-first clipboard manager for Windows (Maccy for Windows)",
   "scripts": {
     "dev": "tauri dev",

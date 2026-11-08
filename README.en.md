@@ -1,8 +1,8 @@
 <div align="center">
 
-<img src="docs/logo.png" width="104" alt="Wincy" />
+<img src="docs/logo.png" width="104" alt="Teecy" />
 
-# Wincy
+# Teecy
 
 **Maccy for Windows** — a lightweight, keyboard-first, fully local clipboard manager.
 
@@ -52,7 +52,7 @@ Tauri 2 + native Win32. 1.3 MB installer, ~20 MB resident memory.
 
 ## Install
 
-Grab `Wincy_x.y.z_x64-setup.exe` from [Releases](../../releases) and run it. Windows 10 / 11 x64, with the built-in WebView2 runtime (preinstalled on Windows 11).
+Grab `Teecy_x.y.z_x64-setup.exe` from [Releases](../../releases) and run it. Windows 10 / 11 x64, with the built-in WebView2 runtime (preinstalled on Windows 11).
 
 It installs per-user, no admin rights needed. The tray menu offers open / settings / pause monitoring / clear history / quit.
 
@@ -75,7 +75,7 @@ The installer lands in `src-tauri/target/release/bundle/nsis/`.
 
 ## Data & privacy
 
-- Everything stays on your machine in `%APPDATA%\app.wincy.clipboard\`: `history.json` for text, `images/` for pictures.
+- Everything stays on your machine in `%APPDATA%\app.teecy.clipboard\`: `history.json` for text, `images/` for pictures.
 - No network access, no telemetry, no accounts. Nothing outside WebView2 is required at runtime.
 - Pause monitoring or wipe the history from the tray menu. A history limit of 0 means unlimited.
 

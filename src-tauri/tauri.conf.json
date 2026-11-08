@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Wincy",
-  "version": "0.2.5",
-  "identifier": "app.wincy.clipboard",
+  "productName": "Teecy",
+  "version": "0.3.0",
+  "identifier": "app.teecy.clipboard",
   "build": {
     "frontendDist": "../src"
   },
@@ -11,7 +11,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "Wincy",
+        "title": "Teecy",
         "url": "index.html",
         "width": 480,
         "height": 540,
@@ -30,7 +30,7 @@
       },
       {
         "label": "settings",
-        "title": "Wincy 设置",
+        "title": "Teecy 设置",
         "url": "settings.html",
         "width": 480,
         "height": 700,

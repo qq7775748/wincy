@@ -410,8 +410,8 @@ listen('popup-shown', (e) => {
   // Theme rides along with the event, so the accent is always the current one
   // on the very first painted frame — no extra IPC, no stale colour.
   const p = e && e.payload;
-  if (p && p.accent) window.__wincyTheme.applyAll(p.theme, p.accent);
-  else window.__wincyTheme.refresh();
+  if (p && p.accent) window.__teecyTheme.applyAll(p.theme, p.accent);
+  else window.__teecyTheme.refresh();
   resetView();
   refresh();
   qEl.focus();
@@ -446,13 +446,13 @@ listen('item-copied', () => {
 // that write happened before this document existed.
 listen('settings-changed', () => {
   invoke('get_settings')
-    .then((s) => window.__wincyTheme.applyAll(s.theme, s.accent))
+    .then((s) => window.__teecyTheme.applyAll(s.theme, s.accent))
     .catch(() => {});
 });
 
 function boot() {
   invoke('get_settings')
-    .then((s) => window.__wincyTheme.applyAll(s.theme, s.accent))
+    .then((s) => window.__teecyTheme.applyAll(s.theme, s.accent))
     .catch(() => {});
   invoke('list_items')
     .then((items) => {

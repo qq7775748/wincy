@@ -102,6 +102,47 @@ pub fn now_ms() -> i64 {
         .unwrap_or(0)
 }
 
+/// One-time handover from the previous name/identifier (`app.wincy.clipboard`).
+/// Copies history and images into the new data dir the first time we start,
+/// then rewrites the absolute image paths so they survive deleting the old dir.
+pub fn migrate_legacy(new_dir: &Path) {
+    if new_dir.join("history.json").exists() {
+        return; // already have data (migrated earlier, or started fresh)
+    }
+    let Some(parent) = new_dir.parent() else {
+        return;
+    };
+    let legacy = parent.join("app.wincy.clipboard");
+    if !legacy.is_dir() || copy_dir(&legacy, new_dir).is_err() {
+        return;
+    }
+
+    let path = new_dir.join("history.json");
+    let Ok(text) = fs::read_to_string(&path) else {
+        return;
+    };
+    let from = legacy.to_string_lossy().replace('\\', "\\\\");
+    let to = new_dir.to_string_lossy().replace('\\', "\\\\");
+    let patched = text.replace(&from, &to);
+    if patched != text {
+        let _ = fs::write(&path, patched);
+    }
+}
+
+fn copy_dir(from: &Path, to: &Path) -> std::io::Result<()> {
+    fs::create_dir_all(to)?;
+    for entry in fs::read_dir(from)? {
+        let entry = entry?;
+        let target = to.join(entry.file_name());
+        if entry.file_type()?.is_dir() {
+            copy_dir(&entry.path(), &target)?;
+        } else {
+            let _ = fs::copy(entry.path(), &target);
+        }
+    }
+    Ok(())
+}
+
 impl Store {
     pub fn load(dir: PathBuf) -> Self {
         let _ = fs::create_dir_all(dir.join("images"));

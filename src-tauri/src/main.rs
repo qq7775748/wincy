@@ -42,13 +42,13 @@ struct AppState {
     pause_item: Mutex<Option<CheckMenuItem<tauri::Wry>>>,
 }
 
-/// Opt-in file log (`WINCY_LOG=1`), handy when debugging focus/hotkey issues.
+/// Opt-in file log (`TEECY_LOG=1`), handy when debugging focus/hotkey issues.
 fn log(msg: &str) {
-    if std::env::var("WINCY_LOG").is_err() {
+    if std::env::var("TEECY_LOG").is_err() {
         return;
     }
     use std::io::Write;
-    let path = std::env::temp_dir().join("wincy.log");
+    let path = std::env::temp_dir().join("teecy.log");
     if let Ok(mut f) = std::fs::OpenOptions::new().create(true).append(true).open(path) {
         let _ = writeln!(f, "[{}] {}", store::now_ms(), msg);
     }
@@ -828,6 +828,7 @@ fn main() {
 
             // data dir + persisted history
             let dir = app.path().app_data_dir()?;
+            store::migrate_legacy(&dir);
             let store = Store::load(dir);
             let settings = store.settings.clone();
             {
@@ -856,7 +857,7 @@ fn main() {
             }
 
             // tray
-            let open_i = MenuItem::with_id(app, "open", "打开 Wincy", true, None::<&str>)?;
+            let open_i = MenuItem::with_id(app, "open", "打开 Teecy", true, None::<&str>)?;
             let settings_i = MenuItem::with_id(app, "settings", "设置…", true, None::<&str>)?;
             let pause_i =
                 CheckMenuItem::with_id(app, "pause", "暂停记录", true, !settings.monitoring, None::<&str>)?;
@@ -888,9 +889,9 @@ fn main() {
                 .cloned()
                 .ok_or("missing window icon")?;
 
-            TrayIconBuilder::with_id("wincy")
+            TrayIconBuilder::with_id("teecy")
                 .icon(icon)
-                .tooltip("Wincy · 剪贴板历史")
+                .tooltip("Teecy · 剪贴板历史")
                 .menu(&menu)
                 .show_menu_on_left_click(false)
                 .on_tray_icon_event(|tray, event| {
@@ -939,15 +940,15 @@ fn main() {
             spawn_watcher(handle.clone());
             spawn_foreground_tracker(handle.clone());
 
-            // handy while developing: WINCY_SHOW=1 opens the popup immediately
-            if std::env::var("WINCY_SHOW").is_ok() {
+            // handy while developing: TEECY_SHOW=1 opens the popup immediately
+            if std::env::var("TEECY_SHOW").is_ok() {
                 let h = handle.clone();
                 std::thread::spawn(move || {
                     std::thread::sleep(Duration::from_millis(400));
                     show_popup(&h);
                 });
             }
-            if std::env::var("WINCY_TOGGLE").is_ok() {
+            if std::env::var("TEECY_TOGGLE").is_ok() {
                 let h = handle.clone();
                 std::thread::spawn(move || {
                     std::thread::sleep(Duration::from_millis(900));
@@ -955,7 +956,7 @@ fn main() {
                     toggle_popup(&h, true);
                 });
             }
-            if std::env::var("WINCY_BENCH").is_ok() {
+            if std::env::var("TEECY_BENCH").is_ok() {
                 let h = handle.clone();
                 std::thread::spawn(move || {
                     std::thread::sleep(Duration::from_millis(1200));
@@ -966,7 +967,7 @@ fn main() {
                     }
                 });
             }
-            if std::env::var("WINCY_SETTINGS").is_ok() {
+            if std::env::var("TEECY_SETTINGS").is_ok() {
                 let h = handle.clone();
                 std::thread::spawn(move || {
                     std::thread::sleep(Duration::from_millis(600));
@@ -988,7 +989,7 @@ fn main() {
                 }
             }
             WindowEvent::Focused(false) => {
-                if window.label() != "main" || std::env::var("WINCY_HOLD").is_ok() {
+                if window.label() != "main" || std::env::var("TEECY_HOLD").is_ok() {
                     return;
                 }
                 let app = window.app_handle();
@@ -1106,7 +1107,7 @@ fn main() {
             _ => {}
         })
         .build(tauri::generate_context!())
-        .expect("error while building Wincy")
+        .expect("error while building Teecy")
         .run(|_app, event| {
             if let RunEvent::ExitRequested { api, .. } = event {
                 api.prevent_exit();

@@ -5,8 +5,8 @@
 // palette before it paints — an IPC round trip would land a frame too late and
 // the window would flash the wrong colours on every hotkey press.
 (function () {
-  var KEY = 'wincy-theme';
-  var AKEY = 'wincy-accent';
+  var KEY = 'teecy-theme';
+  var AKEY = 'teecy-accent';
   var ACCENTS = ['blue', 'indigo', 'purple', 'pink', 'red', 'orange', 'green', 'graphite'];
   // Colour values live here as well as in style.css: the inline custom property
   // below outranks any selector, so a theme change can never lose to CSS
@@ -59,7 +59,7 @@
     return a;
   }
 
-  window.__wincyTheme = {
+  window.__teecyTheme = {
     ACCENTS: ACCENTS,
     pref: pref,
     accent: accent,
@@ -78,8 +78,8 @@
     },
     // Applies whatever the backend says, keeping localStorage in sync.
     applyAll: function (theme, ac) {
-      window.__wincyTheme.set(theme || 'system');
-      window.__wincyTheme.setAccent(ac || 'blue');
+      window.__teecyTheme.set(theme || 'system');
+      window.__teecyTheme.setAccent(ac || 'blue');
     },
     // Re-reads localStorage and repaints. Cheap and synchronous: used on every
     // popup show so a change made while the popup was hidden can never be
