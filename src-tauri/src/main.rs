@@ -40,15 +40,27 @@ struct AppState {
     /// Throttles the history.json write that follows a resize drag.
     size_save: Mutex<Instant>,
     pause_item: Mutex<Option<CheckMenuItem<tauri::Wry>>>,
+    /// HWND of the popup, cached so the watcher threads can query/act without
+    /// touching Tauri window objects from a background thread.
+    main_hwnd: AtomicIsize,
+    /// Last observed state of the mouse buttons, for edge detection.
+    mouse_down: AtomicBool,
 }
 
-/// Opt-in file log (`TEECY_LOG=1`), handy when debugging focus/hotkey issues.
+/// Diagnostic log, on by default so a bug report from a real machine can be
+/// read back afterwards (`TEECY_LOG=0` turns it off). Capped at ~256 KB.
 fn log(msg: &str) {
-    if std::env::var("TEECY_LOG").is_err() {
+    if std::env::var("TEECY_LOG").map(|v| v == "0").unwrap_or(false) {
         return;
     }
     use std::io::Write;
     let path = std::env::temp_dir().join("teecy.log");
+    if std::fs::metadata(&path)
+        .map(|m| m.len() > 256 * 1024)
+        .unwrap_or(false)
+    {
+        let _ = std::fs::remove_file(&path);
+    }
     if let Ok(mut f) = std::fs::OpenOptions::new().create(true).append(true).open(path) {
         let _ = writeln!(f, "[{}] {}", store::now_ms(), msg);
     }
@@ -70,6 +82,8 @@ impl AppState {
             size_dirty: AtomicBool::new(false),
             size_save: Mutex::new(Instant::now() - Duration::from_secs(5)),
             pause_item: Mutex::new(None),
+            main_hwnd: AtomicIsize::new(0),
+            mouse_down: AtomicBool::new(false),
         }
     }
 }
@@ -205,6 +219,37 @@ fn position_popup(app: &AppHandle, win: &tauri::WebviewWindow) {
 /// Windows refuses SetForegroundWindow for a process that does not own the
 /// current foreground; attaching to the foreground thread's input queue is the
 /// reliable way to grab keyboard focus for a hotkey popup.
+/// Simulate a tap of the Alt key. Windows only honours SetForegroundWindow for
+/// the process that owns the current foreground window; a synthetic Alt press
+/// is the long-standing way to release that lock from a background process.
+fn tap_alt() {
+    use windows::Win32::UI::Input::KeyboardAndMouse::{
+        SendInput, INPUT, INPUT_0, INPUT_KEYBOARD, KEYBDINPUT, KEYBD_EVENT_FLAGS, VK_MENU,
+    };
+    let mk = |up: bool| {
+        let mut input = INPUT::default();
+        input.r#type = INPUT_KEYBOARD;
+        input.Anonymous = INPUT_0 {
+            ki: KEYBDINPUT {
+                wVk: VK_MENU,
+                wScan: 0,
+                dwFlags: if up {
+                    windows::Win32::UI::Input::KeyboardAndMouse::KEYEVENTF_KEYUP
+                } else {
+                    KEYBD_EVENT_FLAGS(0)
+                },
+                time: 0,
+                dwExtraInfo: 0,
+            },
+        };
+        input
+    };
+    let inputs = [mk(false), mk(true)];
+    unsafe {
+        SendInput(&inputs, std::mem::size_of::<INPUT>() as i32);
+    }
+}
+
 fn force_foreground(win: &tauri::WebviewWindow) {
     use windows::Win32::Foundation::BOOL;
     use windows::Win32::System::Threading::AttachThreadInput;
@@ -227,6 +272,13 @@ fn force_foreground(win: &tauri::WebviewWindow) {
         if fg_thread != 0 && fg_thread != me {
             let _ = AttachThreadInput(me, fg_thread, BOOL(0));
         }
+        if GetForegroundWindow() != hwnd {
+            // Still refused: release the lock with an Alt tap and ask again.
+            tap_alt();
+            let _ = BringWindowToTop(hwnd);
+            let _ = SetForegroundWindow(hwnd);
+            let _ = SetActiveWindow(hwnd);
+        }
     }
 }
 
@@ -236,7 +288,7 @@ fn force_foreground(win: &tauri::WebviewWindow) {
 /// late enough not to compete with the initial show.
 fn activate_retry(win: tauri::WebviewWindow) {
     std::thread::spawn(move || {
-        for delay in [45u64, 110] {
+        for delay in [40u64, 120, 260, 480] {
             std::thread::sleep(Duration::from_millis(delay));
             if win.is_focused().unwrap_or(false) {
                 break;
@@ -250,16 +302,25 @@ fn activate_retry(win: tauri::WebviewWindow) {
 
 /// True when the mouse pointer sits over the popup — used so a stray focus
 /// change does not close the window under the user's cursor.
-fn cursor_over(win: &tauri::WebviewWindow) -> bool {
-    let Ok(cursor) = win.cursor_position() else { return false };
-    let (Ok(pos), Ok(size)) = (win.outer_position(), win.outer_size()) else {
+/// True when the cursor sits inside the popup window rect — used so a stray
+/// focus change does not close the window under the user's cursor.
+fn cursor_in_rect(hwnd: isize) -> bool {
+    use windows::Win32::Foundation::{HWND, POINT, RECT};
+    use windows::Win32::UI::WindowsAndMessaging::{GetCursorPos, GetWindowRect};
+    if hwnd == 0 {
         return false;
-    };
-    let (x, y) = (cursor.x as i32, cursor.y as i32);
-    x >= pos.x
-        && y >= pos.y
-        && x <= pos.x + size.width as i32
-        && y <= pos.y + size.height as i32
+    }
+    unsafe {
+        let mut p = POINT::default();
+        if GetCursorPos(&mut p).is_err() {
+            return false;
+        }
+        let mut r = RECT::default();
+        if GetWindowRect(HWND(hwnd as *mut core::ffi::c_void), &mut r).is_err() {
+            return false;
+        }
+        p.x >= r.left && p.y >= r.top && p.x <= r.right && p.y <= r.bottom
+    }
 }
 
 fn hide_popup_from(app: &AppHandle, why: &str) {
@@ -315,6 +376,22 @@ fn flush_size(app: &AppHandle, label: &str) {
 fn hide_popup(app: &AppHandle) {
     if let Some(win) = app.get_webview_window("main") {
         let _ = win.hide();
+        // A transparent, undecorated window occasionally ignores the soft hide
+        // (it stays composited on screen while tao already believes it is
+        // gone). Force it off with Win32 so "copy and close" always closes.
+        if win.is_visible().unwrap_or(false) {
+            log("hide: tao hide did not stick, forcing SW_HIDE");
+            if let Ok(hwnd) = win.hwnd() {
+                use windows::Win32::UI::WindowsAndMessaging::{ShowWindow, SW_HIDE};
+                unsafe {
+                    let _ = ShowWindow(windows::Win32::Foundation::HWND(hwnd.0), SW_HIDE);
+                }
+            }
+            log(&format!(
+                "hide: visible after fallback = {}",
+                win.is_visible().unwrap_or(false)
+            ));
+        }
     }
     let state = app.state::<AppState>();
     {
@@ -513,23 +590,116 @@ fn spawn_foreground_tracker(app: AppHandle) {
         let me = unsafe { windows::Win32::System::Threading::GetCurrentProcessId() };
         loop {
             std::thread::sleep(Duration::from_millis(180));
-            unsafe {
-                let h = windows::Win32::UI::WindowsAndMessaging::GetForegroundWindow();
-                if h.0 as isize == 0 {
-                    continue;
-                }
-                let mut pid = 0u32;
-                windows::Win32::UI::WindowsAndMessaging::GetWindowThreadProcessId(
-                    h,
-                    Some(&mut pid),
-                );
-                if pid != 0 && pid != me {
-                    app.state::<AppState>()
-                        .foreground
-                        .store(h.0 as isize, Ordering::Relaxed);
+            let fg = unsafe { windows::Win32::UI::WindowsAndMessaging::GetForegroundWindow() };
+            if fg.0 as isize != 0 {
+                unsafe {
+                    let mut pid = 0u32;
+                    windows::Win32::UI::WindowsAndMessaging::GetWindowThreadProcessId(
+                        fg,
+                        Some(&mut pid),
+                    );
+                    if pid != 0 && pid != me {
+                        app.state::<AppState>()
+                            .foreground
+                            .store(fg.0 as isize, Ordering::Relaxed);
+                    }
                 }
             }
+
+            // Safety net. When the window never becomes active, Windows sends
+            // no blur at all — so neither the blur handler nor Esc/Enter can
+            // ever close it and the popup would sit on top of everything for
+            // good. Watch from the outside instead and dismiss it.
+            //
+            // Everything here is plain Win32: calling Tauri window methods on a
+            // worker thread can block on the event loop and freeze the app.
+            let state = app.state::<AppState>();
+            let hwnd = state.main_hwnd.load(Ordering::Relaxed);
+            if hwnd == 0 {
+                continue;
+            }
+            if state.store.lock().unwrap().settings.keep_open {
+                continue;
+            }
+            let visible = unsafe {
+                windows::Win32::UI::WindowsAndMessaging::IsWindowVisible(
+                    windows::Win32::Foundation::HWND(hwnd as *mut core::ffi::c_void),
+                )
+                .as_bool()
+            };
+            if !visible {
+                continue;
+            }
+            // Once the popup has really been active, treat any later loss of
+            // the foreground as a dismissal and act fast. If it never became
+            // active, give the activation retries a moment first.
+            // Click-outside already handles the common case instantly, so this
+            // is only a slow safety net: never race the user.
+            let min_age = 1500u64;
+            let age = state
+                .shown_at
+                .lock()
+                .unwrap()
+                .map(|t| t.elapsed().as_millis() as u64)
+                .unwrap_or(0);
+            if age < min_age {
+                continue;
+            }
+            let is_fg = fg.0 as isize == hwnd;
+            if is_fg || cursor_in_rect(hwnd) {
+                continue;
+            }
+            log(&format!("tracker: unfocused for {}ms -> hide", age));
+            let h = app.clone();
+            let _ = app.run_on_main_thread(move || hide_popup_from(&h, "tracker"));
         }
+    });
+}
+
+/// Dismisses the popup whenever the mouse goes down anywhere outside it. This
+/// is the behaviour users actually expect (and what macOS does) and it does not
+/// depend on focus events, which Windows happily skips for a transparent,
+/// undecorated always-on-top window.
+fn spawn_click_watcher(app: AppHandle) {
+    use windows::Win32::UI::Input::KeyboardAndMouse::{GetAsyncKeyState, VK_LBUTTON, VK_RBUTTON};
+    std::thread::spawn(move || loop {
+        std::thread::sleep(Duration::from_millis(35));
+        let down = unsafe {
+            (GetAsyncKeyState(VK_LBUTTON.0 as i32) as u16 & 0x8000) != 0
+                || (GetAsyncKeyState(VK_RBUTTON.0 as i32) as u16 & 0x8000) != 0
+        };
+        let state = app.state::<AppState>();
+        let prev = state.mouse_down.swap(down, Ordering::SeqCst);
+        if !down || prev {
+            continue;
+        }
+        let hwnd = state.main_hwnd.load(Ordering::Relaxed);
+        if hwnd == 0 || state.store.lock().unwrap().settings.keep_open {
+            continue;
+        }
+        let visible = unsafe {
+            windows::Win32::UI::WindowsAndMessaging::IsWindowVisible(
+                windows::Win32::Foundation::HWND(hwnd as *mut core::ffi::c_void),
+            )
+            .as_bool()
+        };
+        if !visible {
+            continue;
+        }
+        // Ignore the click that opened the popup (tray menu) and any drag of
+        // its own body.
+        let too_soon = state
+            .shown_at
+            .lock()
+            .unwrap()
+            .map(|t| t.elapsed() < Duration::from_millis(150))
+            .unwrap_or(true);
+        if too_soon || cursor_in_rect(hwnd) {
+            continue;
+        }
+        log("click outside popup -> hide");
+        let h = app.clone();
+        let _ = app.run_on_main_thread(move || hide_popup_from(&h, "click outside"));
     });
 }
 
@@ -665,9 +835,14 @@ fn copy_item(app: AppHandle, id: String, plain: bool, paste: bool) -> Result<(),
         .last_seq
         .store(clipboard::sequence(), Ordering::Relaxed);
 
+    let keep = state.store.lock().unwrap().settings.keep_open;
+    log(&format!(
+        "copy_item: id={} paste={} keep_open={}",
+        id, paste, keep
+    ));
     if paste {
         paste_into_previous(app);
-    } else if state.store.lock().unwrap().settings.keep_open {
+    } else if keep {
         // "Keep on screen" mode: the write already succeeded, so leave the
         // window up and let the page show a short confirmation instead.
         log("copy kept popup open");
@@ -937,8 +1112,19 @@ fn main() {
                 })
                 .build(app)?;
 
+            // Cache the popup HWND once: the watcher threads below must not
+            // touch Tauri window objects from a background thread.
+            if let Some(w) = app.get_webview_window("main") {
+                if let Ok(h) = w.hwnd() {
+                    app.state::<AppState>()
+                        .main_hwnd
+                        .store(h.0 as isize, Ordering::Relaxed);
+                }
+            }
+
             spawn_watcher(handle.clone());
             spawn_foreground_tracker(handle.clone());
+            spawn_click_watcher(handle.clone());
 
             // handy while developing: TEECY_SHOW=1 opens the popup immediately
             if std::env::var("TEECY_SHOW").is_ok() {
@@ -980,6 +1166,7 @@ fn main() {
         .on_window_event(|window, event| match event {
             WindowEvent::Focused(true) => {
                 if window.label() == "main" {
+                    log("focus -> true");
                     *window
                         .app_handle()
                         .state::<AppState>()
@@ -1000,13 +1187,23 @@ fn main() {
                     return;
                 }
                 if !*state.focused_once.lock().unwrap() {
-                    // Activation never landed — keep the window up and try
-                    // again instead of closing it under the user.
-                    log("blur ignored (never focused)");
-                    if let Some(w) = app.get_webview_window("main") {
-                        let _ = app.run_on_main_thread(move || force_foreground(&w));
+                    // Activation never landed. Retry briefly, but stop trying
+                    // after a moment: otherwise every blur re-grabs the
+                    // foreground and the popup can never be dismissed.
+                    let young = state
+                        .shown_at
+                        .lock()
+                        .unwrap()
+                        .map(|t| t.elapsed() < Duration::from_millis(1500))
+                        .unwrap_or(false);
+                    if young {
+                        log("blur ignored (never focused)");
+                        if let Some(w) = app.get_webview_window("main") {
+                            let _ = app.run_on_main_thread(move || force_foreground(&w));
+                        }
+                        return;
                     }
-                    return;
+                    log("blur: never focused but stale -> close anyway");
                 }
                 let fresh = state
                     .shown_at
@@ -1036,16 +1233,34 @@ fn main() {
                     if *state.blur_gen.lock().unwrap() != generation {
                         return;
                     }
-                    let Some(w) = app.get_webview_window("main") else { return };
-                    if !w.is_visible().unwrap_or(false) || w.is_focused().unwrap_or(false) {
+                    // Win32 only — a worker thread must not call Tauri window
+                    // methods, it can deadlock against the event loop.
+                    let hwnd = state.main_hwnd.load(Ordering::Relaxed);
+                    if hwnd == 0 {
                         return;
                     }
-                    if cursor_over(&w) {
+                    let visible = unsafe {
+                        windows::Win32::UI::WindowsAndMessaging::IsWindowVisible(
+                            windows::Win32::Foundation::HWND(hwnd as *mut core::ffi::c_void),
+                        )
+                        .as_bool()
+                    };
+                    if !visible {
+                        return;
+                    }
+                    let fg = unsafe {
+                        windows::Win32::UI::WindowsAndMessaging::GetForegroundWindow()
+                    };
+                    if fg.0 as isize == hwnd {
+                        return;
+                    }
+                    if cursor_in_rect(hwnd) {
                         log("blur ignored (cursor inside)");
                         return;
                     }
                     log("blur -> hide");
-                    hide_popup_from(&app, "blur");
+                    let h = app.clone();
+                    let _ = app.run_on_main_thread(move || hide_popup_from(&h, "blur"));
                 });
             }
             WindowEvent::Resized(_) => {
