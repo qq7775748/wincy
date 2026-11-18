@@ -216,6 +216,20 @@ impl Store {
         }
     }
 
+    /// Moves an existing entry back to the top (and refreshes its timestamp)
+    /// when the user re-copies it from the popup.
+    pub fn touch(&mut self, id: &str) -> bool {
+        let Some(pos) = self.items.iter().position(|i| i.id == id) else {
+            return false;
+        };
+        let mut item = self.items.remove(pos);
+        item.created_at = now_ms();
+        self.items.insert(0, item);
+        self.trim();
+        self.save();
+        true
+    }
+
     pub fn remove(&mut self, id: &str) -> bool {
         if let Some(pos) = self.items.iter().position(|i| i.id == id) {
             let it = self.items.remove(pos);

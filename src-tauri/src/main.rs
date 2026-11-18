@@ -838,6 +838,12 @@ fn copy_item(app: AppHandle, id: String, plain: bool, paste: bool) -> Result<(),
         .last_seq
         .store(clipboard::sequence(), Ordering::Relaxed);
 
+    // Re-copying from the popup promotes the entry back to the top.
+    let promoted = state.store.lock().unwrap().touch(&id);
+    if promoted {
+        let _ = app.emit("history-changed", ());
+    }
+
     let keep = state.store.lock().unwrap().settings.keep_open;
     log(&format!(
         "copy_item: id={} paste={} keep_open={}",
